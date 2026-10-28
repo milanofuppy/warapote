@@ -36,7 +36,10 @@ button{font-family:var(--font-game);color:var(--ink)}
 .round:active{transform:translateY(3px);box-shadow:0 0 0 var(--ink)}
 .round:focus-visible,.btn:focus-visible,.tile:focus-visible,.zcell:focus-visible{outline:3px solid var(--green);outline-offset:2px}
 .round svg{width:24px;height:24px}
-#snd{position:absolute;top:2.4%;right:3.5%;z-index:7}
+#snd{position:absolute;top:2.4%;right:3.5%;z-index:7;transition:background .15s}
+#snd.on{background:#C9E7B8}
+#snd.pop{animation:sndpop .25s ease-out}
+@keyframes sndpop{40%{transform:scale(.82)}100%{transform:scale(1)}}
 #skip{position:absolute;right:3.5%;bottom:3%;z-index:7;font-weight:800;font-size:13px;background:rgba(255,246,226,.9);border:3px solid var(--ink);border-radius:999px;padding:6px 14px;box-shadow:0 3px 0 var(--ink);cursor:pointer}
 .hud{position:absolute;top:2.4%;left:3.5%;right:3.5%;display:flex;align-items:center;gap:8px;pointer-events:none}
 .hud .round{pointer-events:auto}
@@ -101,7 +104,7 @@ button{font-family:var(--font-game);color:var(--ink)}
   <canvas id="cv" aria-label="ピン抜きパズル。ピンをタップして、ポテトをわらびーに届けよう"></canvas>
 
   <button class="round" id="snd" aria-label="音を出す">
-    <svg id="sndOn" viewBox="0 0 24 24" fill="#3A2A1E" stroke="#3A2A1E" stroke-width="2" stroke-linejoin="round" hidden><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke-linecap="round"/></svg>
+    <svg id="sndOn" viewBox="0 0 24 24" fill="#3A2A1E" stroke="#3A2A1E" stroke-width="2" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke-linecap="round"/></svg>
     <svg id="sndOff" viewBox="0 0 24 24" fill="#3A2A1E" stroke="#3A2A1E" stroke-width="2" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6" fill="none" stroke-linecap="round"/></svg>
   </button>
 
@@ -338,7 +341,7 @@ function init(){
   rect(ST.wa[0],ST.wa[1],63,77,5);
   pots=(ST.items||[]).map((p,i)=>({...p,r:rOf(p.kind),b:false,rot:(i*2.39)%6.28,eat:0,gone:false}));
   state='play';frame=0;lastMove=0;parts=[];shake=0;endAt=0;paused=false;bubble={text:ST.hello,t:190};
-  tray={fries:0,meat:0,bun:0,made:0,tea:0};custFate=null;seqi=0;shield=false;doc=null;waBroc=0;throws=[];hand=[];ST.cracked=false;
+  tray={fries:0,meat:0,bun:0,made:0,tea:0};custFate=null;seqi=0;ST.teaDeco=false;shield=false;doc=null;waBroc=0;throws=[];hand=[];ST.cracked=false;
   if(endTimer){clearTimeout(endTimer);endTimer=null}
   document.getElementById('hudTitle').textContent='ステージ '+ST.label;document.getElementById('hudSub').textContent=ST.sub;
   buildWalls();document.getElementById('result').hidden=true;document.getElementById('menu').hidden=true;
@@ -377,11 +380,11 @@ function showResult(){endTimer=null;if(screen!=='game')return;
 function collect(p){p.eat=.01;lastMove=frame}
 function startDoctor(){markSeen('doctor');doc={f:0};bubble={text:'のっぽう先生〜！',t:110};speak('せんせー',330)}
 function deliver(p){const k=p.kind;
+  if(ST.seq){if(k!==ST.seq[seqi])return end('lose','order');if(k==='tea'){p.gone=true;ST.teaDeco=true}else collect(p);seqi++;const L=ST.seqLines[seqi-1];bubble={text:L,t:150};speak('もぐもぐ',330);
+    if(seqi===ST.seq.length){state='movie2';setTimeout(()=>{if(screen==='game'&&state==='movie2')startMovie2()},1400)}return}
   if(k==='kit'){collect(p);startDoctor();return}
   if(k==='broc'){collect(p);waBroc++;markSeen('broc');bubble={text:'ブロッコリー、ゲット！',t:110};speak('げっと',330);return}
   if(k==='customer'){end('lose','customer');return}
-  if(ST.seq){if(k!==ST.seq[seqi])return end('lose','order');collect(p);seqi++;const L=ST.seqLines[seqi-1];bubble={text:L,t:150};speak('もぐもぐ',330);
-    if(seqi===ST.seq.length){state='movie2';setTimeout(()=>{if(screen==='game'&&state==='movie2')startMovie2()},1400)}return}
   if(!ST.order){if(k==='potato'){collect(p);end('win')}else end('lose',k);return}
   const o=ST.order;
   if(k==='fries'){if(!o.fries)return end('lose','wrong');tray.fries++;hand.push({f:0,kind:'fries'})}
@@ -543,9 +546,9 @@ const STAGES=[
     {id:'K',x0:25,x1:34,y1:30,rows:1,items:[['kit',29,28]]},{id:'D',kind:'corn',on:'K',rows:1},
     {id:'Br',x0:36,x1:41,y1:34,rows:1,items:[['broc',38,32]]},{id:'CT',x0:44,x1:57,y0:22,y1:34,items:[['bun',46,32],['tea',46,26],['customer',53,30]]}]}),
  spec({ch:2,label:'2-8',clear:13,locker:true,sub:'おつかれさまのまかない',side:'C',wa:[25,34],ramp:46,ramp2:42,hello:'今日のまかない、なにかな…',winLine:'',winVoice:'',msg:'',
-  seq:['burger','fries','tea','med'],seqLines:['バーガー、いただきます！','ポテト、カリッと！','烏龍茶でひと息…','おくすり…？'],
+  seq:['burger','fries','tea','kit'],seqLines:['バーガー、いただきます！','ポテト、カリッと！','ん？ あかない…','救急箱…？ のっぽう先生〜！'],
   rooms:[{id:'1',num:1,x0:2,x1:11,y1:30,rows:1,items:[['burger',6,28]]},{id:'2',num:2,x0:48,x1:57,y1:30,rows:1,items:[['fries',52,28]]},
-    {id:'3',num:3,x0:14,x1:21,y1:20,rows:1,items:[['tea',17,18]]},{id:'4',num:4,x0:38,x1:45,y1:20,rows:1,items:[['med',41,18]]}]})
+    {id:'3',num:3,x0:14,x1:21,y1:20,rows:1,items:[['tea',17,18]]},{id:'4',num:4,x0:38,x1:45,y1:20,rows:1,items:[['kit',41,18]]}]})
 ];
 const CH2_START=STAGES.findIndex(s=>s.ch===2);
 /* ---------- drawing ---------- */
@@ -655,6 +658,7 @@ function drawPinNums(){for(const p of pins){if(!p.num||p.a>=1)continue;const y=O
 function drawCrackHint(t){if(!ST.cracks||ST.cracked||state!=='play')return;for(const c of ST.cracks){const x=OX+(c[0]+c[1]+1)/2*S,y=OY+c[2]*S;const a=.5+.5*Math.sin(t/260);ctx.globalAlpha=a;ctx.fillStyle='#FFE29A';for(let k=0;k<3;k++){const ang=t/400+k*2.1;ctx.save();ctx.translate(x+Math.cos(ang)*14,y+4+Math.sin(ang)*6);ctx.rotate(ang);ctx.fillRect(-3,-1,6,2);ctx.fillRect(-1,-3,2,6);ctx.restore()}
     ctx.font='800 10px "M PLUS Rounded 1c", sans-serif';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle=INK;ctx.strokeText('ひび？',x,y+18);ctx.fillStyle='#FFF6E2';ctx.fillText('ひび？',x,y+18);ctx.globalAlpha=1}}
 function drawWa(t){if(ST.ch===2&&ST.order)return;
+  if(ST.teaDeco){const bx=OX+waC()*S+46,by=OY+78*S+2;ctx.drawImage(SPR.tea,bx-9,by-36,18,36);if(state==='play'||state==='movie2'){ctx.font='800 16px "M PLUS Rounded 1c", sans-serif';ctx.textAlign='center';ctx.lineWidth=4;ctx.strokeStyle=INK;ctx.strokeText('？',bx,by-44);ctx.fillStyle='#FFE29A';ctx.fillText('？',bx,by-44)}}
   const key=waKey(),im=waImage(key);if(!im||!(im.width||im.naturalWidth))return;markSeen(key);
   const iw=im.naturalWidth||im.width,ih=im.naturalHeight||im.height;
   const lying=/lie|flop/.test(key);const h=lying?62:90,w=h*iw/ih;const fat=ST.fat||1;
@@ -714,7 +718,7 @@ function render(t){const k=cv.width/LW;ctx.setTransform(k,0,0,k,0,0);
 let MV=null;
 const ease=k=>k<0?0:k>1?1:k*k*(3-2*k);
 function startMovie(){MV={t0:performance.now(),puffs:[],debris:[],last:0,done:false};screen='movie';
-  for(const id of ['menu','result','thanks'])document.getElementById(id).hidden=true;document.getElementById('hud').hidden=true;document.getElementById('skip').hidden=false;
+  for(const id of ['menu','result','thanks','title','select','zukan'])document.getElementById(id).hidden=true;document.getElementById('hud').hidden=true;document.getElementById('skip').hidden=false;
   save.cleared=Math.max(save.cleared,stageNo+1);persist();
   if(!muted&&ac()){const t=AC.currentTime;sfxFart(t+.35,1.4);sfxCrash(t+1.05);sfxWhoosh(t+1.6,2.6);sfxBoing(t+3.9);sfxSparkle(t+4.4,2.6);sfxBoing(t+7.0);sfxWhoosh(t+8.4,1);sfxCrash(t+9.4);
     setTimeout(()=>{if(screen==='movie')speak('いらっしゃいませー',340)},10300);setTimeout(()=>{if(screen==='movie'){setChapter(2);jingle(true)}},10900)}}
@@ -772,14 +776,16 @@ function drawMovie(now){if(!MV)return;const t=(now-MV.t0)/1000;
 /* ---------- movie 2: まかない → Redウーロケット → ぼでぃそ宅 ---------- */
 let MV2=null;
 function startMovie2(){MV2={t0:performance.now(),puffs:[],debris:[],done:false};screen='movie2';MV={puffs:[]};
-  for(const id of ['menu','result','thanks'])document.getElementById(id).hidden=true;document.getElementById('hud').hidden=true;document.getElementById('skip').hidden=false;
+  for(const id of ['menu','result','thanks','title','select','zukan'])document.getElementById(id).hidden=true;document.getElementById('hud').hidden=true;document.getElementById('skip').hidden=false;
   save.cleared=Math.max(save.cleared,stageNo+1);persist();markSeen('doctor');
-  if(!muted&&ac()){const t=AC.currentTime;setTimeout(()=>{if(screen==='movie2')speak('せんせー',330)},200);setTimeout(()=>{if(screen==='movie2')sfxInject()},1250);sfxSparkle(t+1.5,.9);sfxBoing(t+2.6);sfxCrash(t+3.4);sfxWhoosh(t+3.6,3.8);sfxBoing(t+7.5);sfxBoing(t+9.2);
+  if(!muted&&ac()){const t=AC.currentTime;setTimeout(()=>{if(screen==='movie2')speak('せんせー',330)},200);setTimeout(()=>{if(screen==='movie2')sfxInject()},1250);sfxSparkle(t+1.5,.9);sfxBoing(t+2.6);sfxCrash(t+3.4);sfxWhoosh(t+3.6,1.2);for(let k=0;k<14;k++)sfxNoise(t+3.6+k*.27,.12,900,500,.05,1.2);sfxBoing(t+7.5);sfxBoing(t+9.2);
     setTimeout(()=>{if(screen==='movie2')speak('おじゃましまーす',330)},10600)}}
 function endMovie2(){if(!MV2)return;MV2=null;MV=null;save.ch3=true;persist();document.getElementById('skip').hidden=true;screen='chapter3';document.getElementById('chapter3').hidden=false}
-function drawRocket(x,y,rot,sc,flame){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.scale(sc,sc);
-  if(flame){for(let i=0;i<3;i++){ctx.fillStyle=['#FFE29A','#FFA53D','#E8433B'][i];ctx.beginPath();ctx.moveTo(-14+i*4,52);ctx.lineTo(0,52+28+Math.random()*16-i*8);ctx.lineTo(14-i*4,52);ctx.closePath();ctx.fill()}}
-  ctx.drawImage(SPR.redwoo,-24,-46,48,90);ctx.restore()}
+function wing(side,flap){ctx.save();ctx.scale(side,1);ctx.rotate(-.35+flap*.7);ctx.beginPath();ctx.moveTo(0,0);ctx.bezierCurveTo(18,-30,52,-34,62,-14);ctx.bezierCurveTo(50,-12,52,-2,40,0);ctx.bezierCurveTo(34,8,22,6,0,4);ctx.closePath();
+  ctx.fillStyle='#FFFFFF';ctx.fill();ctx.strokeStyle=INK;ctx.lineWidth=2.5;ctx.stroke();ctx.lineWidth=1.5;for(const [a,b] of [[22,-10],[34,-14],[46,-12]]){ctx.beginPath();ctx.moveTo(a-8,b+10);ctx.lineTo(a,b);ctx.stroke()}ctx.restore()}
+function drawRocket(x,y,rot,sc,fly){ctx.save();ctx.translate(x,y);ctx.scale(sc,sc);
+  if(fly){const f=Math.sin(performance.now()/70);ctx.save();ctx.translate(0,-10);wing(-1,f);wing(1,f);ctx.restore()}
+  ctx.rotate(rot);ctx.drawImage(SPR.redwoo,-24,-46,48,90);ctx.restore()}
 function city(off){ctx.fillStyle='#A9C6DA';for(let i=0;i<14;i++){const w=46+(i*37)%40,h=120+(i*53)%160,x=((i*80-off)%1120+1120)%1120-80;ctx.fillRect(x,LH-h,w,h);ctx.strokeStyle=INK;ctx.lineWidth=2;ctx.strokeRect(x,LH-h,w,h);
   ctx.fillStyle='#E6F1F7';for(let r=0;r<h/22-1;r++)for(let c=0;c<w/16-1;c++)ctx.fillRect(x+6+c*16,LH-h+8+r*22,8,10);ctx.fillStyle='#A9C6DA'}}
 function drawMovie2(now){if(!MV2)return;const t=(now-MV2.t0)/1000;
@@ -789,7 +795,7 @@ function drawMovie2(now){if(!MV2)return;const t=(now-MV2.t0)/1000;
     if(t<2.6)drawWaImg('s_idle',wx,wy-42,84);
     if(t<2.1){const sc=t<1.5?1:1+(t-1.5)*1.6;if(t<1.5){ctx.drawImage(SPR.tea,bx-9,wy-36,18,36)}else{ctx.drawImage(SPR.redwoo,bx-12*sc,wy-46*sc,24*sc,45*sc)}}
     if(t<2.4){const h=84,w=h*258/360;ctx.save();ctx.translate(dx,wy-(t<.9||t>1.8?Math.abs(Math.sin(t*14))*4:0));if(t>1.8)ctx.scale(-1,1);ctx.drawImage(DOC,-w/2,-h,w,h);ctx.restore();
-      if(t>1.1&&t<1.6)bigText('チクッ',wy-110,22,'#FFE29A')}
+      if(t>1.1&&t<1.6)bigText('チクッ',wy-110,22,'#FFE29A');if(t<.9)bigText('のっぽう先生が来た！',OY+40,22,'#FFF6E2')}
     if(t>1.5&&t<1.8){ctx.fillStyle=`rgba(255,255,255,${1-(t-1.5)/.3})`;ctx.fillRect(0,0,LW,LH)}
     if(t>1.6&&t<2.6)bigText('Redウーに進化！',OY+40,26,'#7FB7FF');
     if(t>=2.1){const k=Math.min(1,(t-2.1)/1.3),rot=ease(Math.min(1,(t-2.6)/.5))*Math.PI/2,rx=bx+Math.max(0,(t-3.0))*600,ry=wy-70;drawRocket(rx,ry,rot,1.3,t>2.7);if(t>2.5)drawWaImg('s_win',rx-(rot>1?8:0),ry-56,60)}
@@ -798,8 +804,8 @@ function drawMovie2(now){if(!MV2)return;const t=(now-MV2.t0)/1000;
   if(t<7.4){const k=t-3.6;const gr=ctx.createLinearGradient(0,0,0,LH);gr.addColorStop(0,'#F6C9A0');gr.addColorStop(1,'#CFEAF5');ctx.fillStyle=gr;ctx.fillRect(0,0,LW,LH);
     for(let i=0;i<5;i++){cloud(((i*170-k*500)%700+700)%700-100,90+i*40,.8,0)}city(k*700);
     ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;for(let i=0;i<12;i++){const yy=(i*53+20)%LH,xx=LW-((k*1600+i*97)%(LW+60));ctx.beginPath();ctx.moveTo(xx,yy);ctx.lineTo(xx+50,yy);ctx.stroke()}
-    const x=170+Math.sin(k*4)*10,y=300+Math.sin(k*7)*8;for(let i=0;i<2;i++)MV.puffs.push({x:x-40,y:y+Math.random()*10-5,vx:-3-Math.random()*2,vy:(Math.random()-.5),r:6,life:40});drawPuffs();
-    drawRocket(x,y,Math.PI/2,1.3,true);drawWaImg('s_win',x-8,y-56,60);if(k<1.2)bigText('ぎゅいーーん！',150,28,'#FFF6E2');return}
+    const x=170+Math.sin(k*4)*10,y=300+Math.sin(k*7)*8;for(let i=0;i<4;i++){ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc(x-50-((now/4+i*40)%140),y+Math.sin(now/200+i)*10,3,0,7);ctx.fill()}
+    drawRocket(x,y,Math.PI/2,1.3,true);drawWaImg('s_win',x-8,y-56,60);if(k<1.2)bigText('パタパタ〜♪',150,28,'#FFF6E2');return}
   if(t<8.4){const k=t-7.4;const gr=ctx.createLinearGradient(0,0,0,LH);gr.addColorStop(0,'#F6C9A0');gr.addColorStop(1,'#CFEAF5');ctx.fillStyle=gr;ctx.fillRect(0,0,LW,LH);city(3.8*700+k*200);
     const x=170,y=300;if(k<.35){drawRocket(x,y,Math.PI/2,1.3*(1-k/.35),true)}if(!MV2.poof){MV2.poof=true;for(let i=0;i<18;i++){const a=i/18*6.28;MV.puffs.push({x,y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,r:10,life:50})}}drawPuffs();
     for(let i=0;i<10;i++){const a=i*.63+k*4;ctx.fillStyle='#FFE29A';ctx.beginPath();ctx.arc(x+Math.cos(a)*k*120,y+Math.sin(a)*k*120,4,0,7);ctx.fill()}
@@ -909,12 +915,14 @@ $('skip').onclick=()=>{if(screen==='movie')endMovie();else if(screen==='movie2')
 $('c3Home').onclick=()=>show('title');
 $('cStart').onclick=()=>{ac();startStage(CH2_START)};
 $('cHome').onclick=()=>show('title');
-$('snd').onclick=()=>{muted=!muted;$('sndOn').hidden=muted;$('sndOff').hidden=!muted;$('snd').setAttribute('aria-label',muted?'音を出す':'音を切る');
+function syncSnd(){$('sndOn').style.display=muted?'none':'';$('sndOff').style.display=muted?'':'none';$('snd').classList.toggle('on',!muted)}
+$('snd').onclick=()=>{muted=!muted;syncSnd();const b=$('snd');b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop');$('snd').setAttribute('aria-label',muted?'音を出す':'音を切る');
   if(muted)stopBGM();else{ac();startBGM()}};
 document.addEventListener('visibilitychange',()=>{if(document.hidden){if(screen==='game'&&state==='play')openMenu();if(AC)AC.suspend()}else if(AC&&!muted)AC.resume()});
 $('tHero').src=WA.proud.src;
 function placeThanks(){const el=$('thanks'),r=$('stage').getBoundingClientRect();if(innerHeight-r.bottom>=30){el.style.position='fixed';el.style.left=Math.max(8,r.left)+'px';el.style.top=(r.bottom+4)+'px';el.style.bottom='auto'}else{el.style.position='';el.style.left='';el.style.top='';el.style.bottom=''}}
 addEventListener('resize',placeThanks);
+document.addEventListener('touchstart',()=>{},{passive:true});syncSnd();
 fit();show('title');placeThanks();requestAnimationFrame(tick);
 </script>
 
